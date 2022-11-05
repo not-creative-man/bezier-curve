@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bezier</title>
+</head>
+
+<body>
+    <div class="container" style="padding: 40px; display: flex; flex-direction: column;">
+        <span>Чтобы передвинуть точку, зажми ее левой кнопкой мыши и передвинь<br>Точка передвинется после отпускания кнопки мыши</span>
+        <canvas class="canvas" id="canvas" style="width: 400px; height: 400px; outline: 1px solid black; margin: 15px 0;"></canvas>
+        <div id="button" style="padding-top: 10px; padding-bottom: 10px; text-align: center; border: 1px solid black; cursor: pointer; width: 400px;" onclick="clearCanvas()">Очистить канвас</div>
+    </div>
+    <script>
+        let canvas = document.getElementById("canvas"),
+            ctxCanvas = canvas.getContext("2d");
+        let mouse = {
+            x: 0,
+            y: 0
+        };
+        let rectSize = 7;
+        canvas.width = 400, canvas.height = 400;
+        let dot_num = 0;
+        let points = [];
+        let controlPoints = [];
+        let n = 0;
+        let dot = {arr_num: -1, index: -1};
+        let isMoving = false;
+        let changedPointPosition = false;
+
+        console.log(isMoving);
+
+        canvas.addEventListener("click", function(e) {
+            if(isMoving){
+                isMoving = false;
+                console.log("iiiiiy");
+                return;
+            }
+            if(changedPointPosition){
+                console.log("shish");
+                changedPointPosition = false;
+            } 
+            else{
+                mouse.x = e.pageX - canvas.offsetLeft;
+                mouse.y = e.pageY - canvas.offsetTop;
+                if (dot_num < 2) {
+                    drawDot(mouse, `green`);
+                    points.push({
+                        x: mouse.x,
+                        y: mouse.y
+                    })
+                    console.log(points)
+                    dot_num++
+                } else {
+                    drawDot(mouse, `black`);
+                    controlPoints.push({
+                        x: mouse.x,
+                        y: mouse.y
+                    })
+                    console.log(controlPoints)
+                } 
+            }
+            if(dot_num == 2) drawBezier();
+        });
+
+        // canvas.addEventListener("mousemove", () => {isMoving = true;
+        // console.log(isMoving);})
+
+        canvas.addEventListener("mousedown", function(e){
+            isMoving = true;
+            //changedPointPosition = true;
+            mouse.x = e.pageX - canvas.offsetLeft;
+            mouse.y = e.pageY - canvas.offsetTop; 
+            for(let i = 0; i < points.length; i++){
+                if((mouse.x <= points[i].x + rectSize/2 && mouse.x >= points[i].x - rectSize/2) &&
+                   (mouse.y <= points[i].y + rectSize/2 && mouse.y >= points[i].y - rectSize/2)){
+                    dot.arr_num = 0;
+                    dot.index = i;
+                }
+            }
+            for(let i = 0; i < controlPoints.length; i++){
+                if((mouse.x <= controlPoints[i].x + rectSize/2 && mouse.x >= controlPoints[i].x - rectSize/2) &&
+                    (mouse.y <= controlPoints[i].y + rectSize/2 && mouse.y >= controlPoints[i].y - rectSize/2)){
+                        dot.arr_num = 1;
+                        dot.index = i;
+                }
+            }
+        });
+
+        canvas.addEventListener("mouseup", function(e){
+            isMoving = false;
+            if(dot.arr_num == -1) return;
+            changedPointPosition = true;
+            mouse.x = e.pageX - canvas.offsetLeft;
+            mouse.y = e.pageY - canvas.offsetTop;
+            if(dot.arr_num == 0){
+                points[dot.index].x = mouse.x;
+                points[dot.index].y = mouse.y; 
+            } else if(dot.arr_num == 1){
+                controlPoints[dot.index].x = mouse.x;
+                controlPoints[dot.index].y = mouse.y; 
+            }
+
+            drawBezier();
+
+            dot.arr_num = -1;
+            dot.index = -1;
+        });
+
+        // canvas.addEventListener("mousemove", function(e){
+            
+        // });
+
+        function drawDot(dot, color) {
+            ctxCanvas.beginPath();
+            ctxCanvas.fillStyle = color;
+            ctxCanvas.arc(dot.x, dot.y, rectSize, 0, Math.PI * 2, true);
+            ctxCanvas.fill();
+            ctxCanvas.closePath();
+        }
+
+        var speed = 0; // скорость анимации (чем меньше тем быстрее)
+
+        function getBezierBasis(i, n, t) { // находим bi,n по алгоритму де Кастельжо
+            // Факториал
+            function f(n) { // рекурсивно находим факториал
+                if (n <= 1) {
+                    return 1;
+                } else {
+                    return n * f(n - 1);
+                }
+            };
+
+            // считаем i-й элемент полинома Берштейна
+            return (f(n) / (f(i) * f(n - i))) * Math.pow(t, i) * Math.pow(1 - t, n - i);
+        }
+
+
+        function getBezierCurve(arr) {
+
+            var step = 0.01; // пишем шаг
+
+            var res = new Array(); // создаем массив в котором будем хранить новые точки для построения
+
+            for (var t = 0; t < 1 + step; t += step) {
+                if (t > 1) {
+                    t = 1; // сумма шага не может быть больше 1
+                }
+
+                var ytmp = 0; // временные для хранения координат
+                var xtmp = 0;
+
+                for (var i = 0; i < arr.length; i++) { // проходим по каждой точке
+                    var b = getBezierBasis(i, arr.length - 1, t); // вычисляем наш полином Берштейна
+                    xtmp += arr[i].x * b; // записываем и прибавляем результат
+                    ytmp += arr[i].y * b;
+                }
+                res.push({
+                    "x": xtmp,
+                    "y": ytmp
+                }); // запушиваем конечный результат в наш новыйй массив
+
+            }
+
+            return res; // возвращаем его
+        }
+        
+        function drawBezier(){
+            var cords = []
+            for(let i = 0; i < points.length+controlPoints.length; i++){
+                if(i == 0){
+                    cords.push(points[0])
+                } else if(i == points.length+controlPoints.length - 1){
+                    cords.push(points[1])
+                } else cords.push(controlPoints[i - 1])
+            }
+            var arrayCords = getBezierCurve(cords); // получаем координаты точек кривой безье
+            ctxCanvas.clearRect(0, 0, canvas.width, canvas.height);
+            for(let i = 0; i < points.length; i++){
+                drawDot(points[i], `green`);
+            }
+            for(let i = 0; i < controlPoints.length; i++){
+                drawDot(controlPoints[i], `black`);
+            }
+            ctxCanvas.beginPath(); // очищаем полотно и начинаем рисовать
+            ctxCanvas.moveTo(arrayCords[0].x, arrayCords[0].y); // двигаемся к 1 точке
+            var i = 0;
+            var interval = setInterval(function() {
+                draw(); // вызываем функцию прорисовки
+                i++; // увеличиваем i				
+                if (i >= arrayCords.length) { // проверяем не конец ли массива?
+                    clearInterval(interval); // конец, удаляем интервал
+                }
+            });
+            function draw() { // функция прорисовки точки
+                ctxCanvas.lineTo(arrayCords[i].x, arrayCords[i].y); // рисуем итую точку
+                ctxCanvas.stroke();
+            }
+        }
+        
+        function clearCanvas(){
+            points = [];
+            controlPoints = [];
+            dot_num = 0;
+            ctxCanvas.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+
+</html>
